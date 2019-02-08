@@ -8,7 +8,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Provider makes the AlienVault provider available
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{

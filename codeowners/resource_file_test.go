@@ -15,8 +15,9 @@ import (
 
 const testAccFileConfig = `
 	resource "codeowners_file" "my-codeowners-file" {
-		repository_name = "enforcement-test-repo"
+		repository_name  = "enforcement-test-repo"
 		repository_owner = "form3tech"
+		branch           = "master"
 		rules = [
 			{
 				pattern = "*"

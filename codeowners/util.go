@@ -14,6 +14,7 @@ var codeownersPath = ".github/CODEOWNERS"
 type File struct {
 	RepositoryName  string
 	RepositoryOwner string
+	Branch          string
 	Ruleset         Ruleset
 }
 
@@ -91,35 +92,50 @@ func (ruleset Ruleset) Compile() []byte {
 	return []byte(output)
 }
 
-func updateRulesetForRepo(client *github.Client, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
+func updateRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
 	ctx := context.Background()
 
-	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentGetOptions{})
+	getOptions := &github.RepositoryContentGetOptions{}
+	if branch != "" {
+		getOptions.Ref = branch
+	}
+
+	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, getOptions)
 	if err != nil || rr.StatusCode >= 400 {
 		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 	}
 
-	_, _, err = client.Repositories.UpdateFile(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentFileOptions{
+	options := &github.RepositoryContentFileOptions{
 		Content: ruleset.Compile(),
 		Message: &commitMessage,
 		SHA:     codeOwnerContent.SHA,
-	})
+	}
+	if branch != "" {
+		options.Branch = &branch
+	}
+
+	_, _, err = client.Repositories.UpdateFile(ctx, repoOwner, repoName, codeownersPath, options)
 
 	return err
 }
 
-func createRulesetForRepo(client *github.Client, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
+func createRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
 	ctx := context.Background()
 
-	_, _, err := client.Repositories.CreateFile(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentFileOptions{
+	options := &github.RepositoryContentFileOptions{
 		Content: ruleset.Compile(),
 		Message: &commitMessage,
-	})
+	}
+	if branch != "" {
+		options.Branch = &branch
+	}
+
+	_, _, err := client.Repositories.CreateFile(ctx, repoOwner, repoName, codeownersPath, options)
 
 	return err
 }
 
-func deleteRulesetForRepo(client *github.Client, repoOwner string, repoName string, commitMessage string) error {
+func deleteRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, commitMessage string) error {
 	ctx := context.Background()
 
 	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentGetOptions{})
@@ -131,19 +147,29 @@ func deleteRulesetForRepo(client *github.Client, repoOwner string, repoName stri
 		return nil
 	}
 
-	_, _, err = client.Repositories.DeleteFile(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentFileOptions{
+	options := &github.RepositoryContentFileOptions{
 		Message: &commitMessage,
 		SHA:     codeOwnerContent.SHA,
-	})
+	}
+	if branch != "" {
+		options.Branch = &branch
+	}
+
+	_, _, err = client.Repositories.DeleteFile(ctx, repoOwner, repoName, codeownersPath, options)
 
 	return err
 }
 
-func readRulesetForRepo(client *github.Client, repoOwner string, repoName string) (Ruleset, error) {
+func readRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string) (Ruleset, error) {
 
 	ctx := context.Background()
 
-	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentGetOptions{})
+	getOptions := &github.RepositoryContentGetOptions{}
+	if branch != "" {
+		getOptions.Ref = branch
+	}
+
+	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, getOptions)
 	if err != nil || rr.StatusCode >= 500 {
 		return nil, fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 	}

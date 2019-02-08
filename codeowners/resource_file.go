@@ -28,6 +28,12 @@ func resourceFile() *schema.Resource {
 				Description: "The repository name e.g. my-repo",
 				ForceNew:    true,
 			},
+			"branch": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "The branch to control CODEOWNERS on - defaults to the default repo branch",
+				Default:     "",
+			},
 			"rules": &schema.Schema{
 				Type:        schema.TypeSet,
 				Optional:    true,
@@ -58,12 +64,9 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	client := m.(*github.Client)
 
-	file := &File{
-		RepositoryOwner: d.Get("repository_owner").(string),
-		RepositoryName:  d.Get("repository_name").(string),
-	}
+	file := expandFile(d)
 
-	ruleset, err := readRulesetForRepo(client, file.RepositoryOwner, file.RepositoryName)
+	ruleset, err := readRulesetForRepo(client, d.Get("branch").(string), file.RepositoryOwner, file.RepositoryName)
 	if err != nil {
 		return err
 	}
@@ -79,7 +82,7 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 
 	file := expandFile(d)
 
-	if err := createRulesetForRepo(client, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
+	if err := createRulesetForRepo(client, file.Branch, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
 		return err
 	}
 
@@ -92,7 +95,7 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 
 	file := expandFile(d)
 
-	if err := updateRulesetForRepo(client, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
+	if err := updateRulesetForRepo(client, file.Branch, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
 		return err
 	}
 
@@ -104,7 +107,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 
 	owner, name := d.Get("repository_owner").(string), d.Get("repository_name").(string)
 
-	return deleteRulesetForRepo(client, owner, name, "Removing CODEOWNERS file")
+	return deleteRulesetForRepo(client, d.Get("branch").(string), owner, name, "Removing CODEOWNERS file")
 }
 
 func flattenFile(file *File, d *schema.ResourceData) error {
@@ -112,6 +115,7 @@ func flattenFile(file *File, d *schema.ResourceData) error {
 	d.Set("repository_name", file.RepositoryName)
 	d.Set("repository_owner", file.RepositoryOwner)
 	d.Set("rules", flattenRuleset(file.Ruleset))
+	d.Set("branch", file.Branch)
 	return nil
 }
 
@@ -130,6 +134,7 @@ func expandFile(d *schema.ResourceData) *File {
 	file := &File{}
 	file.RepositoryName = d.Get("repository_name").(string)
 	file.RepositoryOwner = d.Get("repository_owner").(string)
+	file.Branch = d.Get("branch").(string)
 	file.Ruleset = expandRuleset(d.Get("rules").(*schema.Set))
 	return file
 }

@@ -25,10 +25,6 @@ type Rule struct {
 	Usernames []string
 }
 
-func (file *File) RepositorySlug() string {
-	return fmt.Sprintf("%s/%s", file.RepositoryOwner, file.RepositoryName)
-}
-
 func (ruleset Ruleset) Equal(comparison Ruleset) bool {
 	if len(ruleset) != len(comparison) {
 		return false

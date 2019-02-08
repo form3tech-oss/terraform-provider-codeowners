@@ -1,6 +1,8 @@
 package codeowners
 
 import (
+	"fmt"
+
 	"github.com/google/go-github/github"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -111,7 +113,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 }
 
 func flattenFile(file *File, d *schema.ResourceData) error {
-	d.SetId(file.RepositorySlug())
+	d.SetId(fmt.Sprintf("%s/%s", file.RepositoryOwner, file.RepositoryName))
 	d.Set("repository_name", file.RepositoryName)
 	d.Set("repository_owner", file.RepositoryOwner)
 	d.Set("rules", flattenRuleset(file.Ruleset))

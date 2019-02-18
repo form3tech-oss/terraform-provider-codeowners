@@ -1,10 +1,12 @@
 package codeowners
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
-	"github.com/google/go-github/github"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/liamg/go-github/github"
 )
 
 func resourceFile() *schema.Resource {
@@ -64,27 +66,61 @@ func resourceFile() *schema.Resource {
 
 func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
-	client := m.(*github.Client)
+	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
 
-	ruleset, err := readRulesetForRepo(client, d.Get("branch").(string), file.RepositoryOwner, file.RepositoryName)
-	if err != nil {
-		return err
+	getOptions := &github.RepositoryContentGetOptions{}
+	if d.Get("branch").(string) != "" {
+		getOptions.Ref = d.Get("branch").(string)
 	}
 
-	file.Ruleset = ruleset
+	ctx := context.Background()
+	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, getOptions)
+	if err != nil || rr.StatusCode >= 500 {
+		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
+	}
+
+	if rr.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("file %s does not exist", codeownersPath)
+	}
+
+	raw, err := codeOwnerContent.GetContent()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve content for %s: %s", codeownersPath, err)
+	}
+
+	file.Ruleset = parseRulesFile(raw)
 
 	return flattenFile(file, d)
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 
-	client := m.(*github.Client)
+	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
 
-	if err := createRulesetForRepo(client, file.Branch, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
+	entries := []github.TreeEntry{
+		github.TreeEntry{
+			Path:    github.String(codeownersPath),
+			Content: github.String(string(file.Ruleset.Compile())),
+			Type:    github.String("blob"),
+			Mode:    github.String("100644"),
+		},
+	}
+
+	if err := createCommit(config.client, &signedCommitOptions{
+		repoOwner:     file.RepositoryOwner,
+		repoName:      file.RepositoryName,
+		branch:        file.Branch,
+		commitMessage: "Adding CODEOWNERS file",
+		gpgPassphrase: config.gpgPassphrase,
+		gpgPrivateKey: config.gpgKey,
+		username:      config.ghUsername,
+		email:         config.ghEmail,
+		changes:       entries,
+	}); err != nil {
 		return err
 	}
 
@@ -93,11 +129,30 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 
 func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 
-	client := m.(*github.Client)
+	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
 
-	if err := updateRulesetForRepo(client, file.Branch, file.RepositoryOwner, file.RepositoryName, file.Ruleset, "Adding CODEOWNERS file"); err != nil {
+	entries := []github.TreeEntry{
+		github.TreeEntry{
+			Path:    github.String(codeownersPath),
+			Content: github.String(string(file.Ruleset.Compile())),
+			Type:    github.String("blob"),
+			Mode:    github.String("100644"),
+		},
+	}
+
+	if err := createCommit(config.client, &signedCommitOptions{
+		repoName:      file.RepositoryOwner,
+		repoOwner:     file.RepositoryName,
+		branch:        file.Branch,
+		commitMessage: "Updating CODEOWNERS file",
+		gpgPassphrase: config.gpgPassphrase,
+		gpgPrivateKey: config.gpgKey,
+		username:      config.ghUsername,
+		email:         config.ghEmail,
+		changes:       entries,
+	}); err != nil {
 		return err
 	}
 
@@ -105,11 +160,31 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
-	client := m.(*github.Client)
+	config := m.(*providerConfiguration)
 
 	owner, name := d.Get("repository_owner").(string), d.Get("repository_name").(string)
 
-	return deleteRulesetForRepo(client, d.Get("branch").(string), owner, name, "Removing CODEOWNERS file")
+	ctx := context.Background()
+
+	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
+	}
+
+	if rr.StatusCode == http.StatusNotFound { // resource already removed
+		return nil
+	}
+
+	options := &github.RepositoryContentFileOptions{
+		Message: github.String("Removing CODEOWNERS file"),
+		SHA:     codeOwnerContent.SHA,
+	}
+	if d.Get("branch").(string) != "" {
+		options.Branch = github.String(d.Get("branch").(string))
+	}
+
+	_, _, err = config.client.Repositories.DeleteFile(ctx, owner, name, codeownersPath, options)
+	return err
 }
 
 func flattenFile(file *File, d *schema.ResourceData) error {

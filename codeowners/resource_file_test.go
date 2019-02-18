@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-github/github"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/liamg/go-github/github"
 )
 
 const testAccFileConfig = `
@@ -58,7 +58,7 @@ func TestAccResourceFile(t *testing.T) {
 }
 
 func testAccCheckFileDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(*github.Client)
+	config := testAccProvider.Meta().(*providerConfiguration)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "codeowners_repository_file" {
@@ -72,7 +72,7 @@ func testAccCheckFileDestroy(s *terraform.State) error {
 		owner, name := parts[0], parts[1]
 
 		ctx := context.Background()
-		_, _, response, err := client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
+		_, _, response, err := config.client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
 		if err != nil || response.StatusCode >= 500 {
 			return err
 		}
@@ -96,7 +96,7 @@ func testAccCheckFileExists(n string, res *File) resource.TestCheckFunc {
 			return errors.New("no resource ID is set")
 		}
 
-		client := testAccProvider.Meta().(*github.Client)
+		config := testAccProvider.Meta().(*providerConfiguration)
 
 		parts := strings.Split(rs.Primary.ID, "/")
 		if len(parts) != 2 {
@@ -105,7 +105,7 @@ func testAccCheckFileExists(n string, res *File) resource.TestCheckFunc {
 		owner, name := parts[0], parts[1]
 
 		ctx := context.Background()
-		codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
+		codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
 		if err != nil || rr.StatusCode >= 500 {
 			return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 		}

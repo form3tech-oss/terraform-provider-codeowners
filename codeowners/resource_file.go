@@ -111,8 +111,8 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if err := createCommit(config.client, &signedCommitOptions{
-		repoName:      file.RepositoryOwner,
-		repoOwner:     file.RepositoryName,
+		repoOwner:     file.RepositoryOwner,
+		repoName:      file.RepositoryName,
 		branch:        file.Branch,
 		commitMessage: "Adding CODEOWNERS file",
 		gpgPassphrase: config.gpgPassphrase,

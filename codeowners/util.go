@@ -138,10 +138,20 @@ type signedCommitOptions struct {
 }
 
 func createCommit(client *github.Client, options *signedCommitOptions) error {
+
 	ctx := context.Background()
+	branch := options.branch
+
+	if branch == "" {
+		rep, _, err := client.Repositories.Get(ctx, options.repoOwner, options.repoName)
+		if err != nil {
+			return err
+		}
+		branch = *rep.DefaultBranch
+	}
 
 	// get ref for selected branch
-	ref, _, err := client.Git.GetRef(ctx, options.repoOwner, options.repoName, "refs/heads/"+options.branch)
+	ref, _, err := client.Git.GetRef(ctx, options.repoOwner, options.repoName, "refs/heads/"+branch)
 	if err != nil {
 		return err
 	}

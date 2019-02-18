@@ -96,7 +96,7 @@ func testAccCheckFileExists(n string, res *File) resource.TestCheckFunc {
 			return errors.New("no resource ID is set")
 		}
 
-		client := testAccProvider.Meta().(*github.Client)
+		config := testAccProvider.Meta().(*providerConfiguration)
 
 		parts := strings.Split(rs.Primary.ID, "/")
 		if len(parts) != 2 {
@@ -105,7 +105,7 @@ func testAccCheckFileExists(n string, res *File) resource.TestCheckFunc {
 		owner, name := parts[0], parts[1]
 
 		ctx := context.Background()
-		codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
+		codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
 		if err != nil || rr.StatusCode >= 500 {
 			return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 		}

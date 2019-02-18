@@ -12,7 +12,17 @@ Do you use terraform to manage your GitHub organisation? Are you frustrated that
 
 Download the relevant binary from [releases](https://github.com/form3tech-oss/terraform-provider-codeowners/releases) and copy it to `$HOME/.terraform.d/plugins/`.
 
-## Authentication
+## Configuration
+
+The following provider block variables are available for configuration:
+
+- `github_token` GitHub auth token - see below section. (read from env var `$GITHUB_TOKEN`)
+- `username` Username to use in commits (read from env var `$GITHUB_USERNAME`)
+- `email` Email to use in commits - this must match the email in your GPG key if you are signing commits (read from env var `$GITHUB_EMAIL`)
+- `gpg_secret_key` The private GPG key to use to sign commits (optional) (read from env var `$GPG_SECRET_KEY`)
+- `gpg_passphrase` The passphrase associated with the aforementioned GPG key (optional) (read from env var `$GPG_PASSPHRASE`)
+
+### Authentication
 
 There are two methods for authenticating with this provider.
 

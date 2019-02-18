@@ -1,12 +1,14 @@
 package codeowners
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/github"
+	"golang.org/x/crypto/openpgp"
 )
 
 var codeownersPath = ".github/CODEOWNERS"
@@ -58,7 +60,7 @@ func sameStringSlice(x, y []string) bool {
 		if _, ok := diff[_y]; !ok {
 			return false
 		}
-		diff[_y] -= 1
+		diff[_y]--
 		if diff[_y] == 0 {
 			delete(diff, _y)
 		}
@@ -86,101 +88,6 @@ func (ruleset Ruleset) Compile() []byte {
 		output = fmt.Sprintf("%s%s %s\n", output, rule.Pattern, usernames)
 	}
 	return []byte(output)
-}
-
-func updateRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
-	ctx := context.Background()
-
-	getOptions := &github.RepositoryContentGetOptions{}
-	if branch != "" {
-		getOptions.Ref = branch
-	}
-
-	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, getOptions)
-	if err != nil || rr.StatusCode >= 400 {
-		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
-	}
-
-	options := &github.RepositoryContentFileOptions{
-		Content: ruleset.Compile(),
-		Message: &commitMessage,
-		SHA:     codeOwnerContent.SHA,
-	}
-	if branch != "" {
-		options.Branch = &branch
-	}
-
-	_, _, err = client.Repositories.UpdateFile(ctx, repoOwner, repoName, codeownersPath, options)
-
-	return err
-}
-
-func createRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, ruleset Ruleset, commitMessage string) error {
-	ctx := context.Background()
-
-	options := &github.RepositoryContentFileOptions{
-		Content: ruleset.Compile(),
-		Message: &commitMessage,
-	}
-	if branch != "" {
-		options.Branch = &branch
-	}
-
-	_, _, err := client.Repositories.CreateFile(ctx, repoOwner, repoName, codeownersPath, options)
-
-	return err
-}
-
-func deleteRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string, commitMessage string) error {
-	ctx := context.Background()
-
-	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, &github.RepositoryContentGetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
-	}
-
-	if rr.StatusCode == http.StatusNotFound { // resource already removed
-		return nil
-	}
-
-	options := &github.RepositoryContentFileOptions{
-		Message: &commitMessage,
-		SHA:     codeOwnerContent.SHA,
-	}
-	if branch != "" {
-		options.Branch = &branch
-	}
-
-	_, _, err = client.Repositories.DeleteFile(ctx, repoOwner, repoName, codeownersPath, options)
-
-	return err
-}
-
-func readRulesetForRepo(client *github.Client, branch string, repoOwner string, repoName string) (Ruleset, error) {
-
-	ctx := context.Background()
-
-	getOptions := &github.RepositoryContentGetOptions{}
-	if branch != "" {
-		getOptions.Ref = branch
-	}
-
-	codeOwnerContent, _, rr, err := client.Repositories.GetContents(ctx, repoOwner, repoName, codeownersPath, getOptions)
-	if err != nil || rr.StatusCode >= 500 {
-		return nil, fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
-	}
-
-	if rr.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("file %s does not exist", codeownersPath)
-	}
-
-	raw, err := codeOwnerContent.GetContent()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve content for %s: %s", codeownersPath, err)
-	}
-
-	return parseRulesFile(raw), nil
-
 }
 
 func parseRulesFile(data string) Ruleset {
@@ -216,4 +123,134 @@ func parseRulesFile(data string) Ruleset {
 
 	return rules
 
+}
+
+type signedCommitOptions struct {
+	repoOwner     string
+	repoName      string
+	commitMessage string
+	gpgPassphrase string
+	gpgPrivateKey string // detached armor format
+	changes       []github.TreeEntry
+	branch        string
+	username      string
+	email         string
+}
+
+func createCommit(client *github.Client, options *signedCommitOptions) error {
+	ctx := context.Background()
+
+	// get ref for selected branch
+	ref, _, err := client.Git.GetRef(ctx, options.repoOwner, options.repoName, "refs/heads/"+options.branch)
+	if err != nil {
+		return err
+	}
+
+	// create tree containing required changes
+	tree, _, err := client.Git.CreateTree(ctx, options.repoOwner, options.repoName, *ref.Object.SHA, options.changes)
+	if err != nil {
+		return err
+	}
+
+	// get parent commit
+	parent, _, err := client.Repositories.GetCommit(ctx, options.repoOwner, options.repoName, *ref.Object.SHA)
+	if err != nil {
+		return err
+	}
+
+	// This is not always populated, but is needed.
+	parent.Commit.SHA = github.String(parent.GetSHA())
+
+	date := time.Now()
+	author := &github.CommitAuthor{
+		Date:  &date,
+		Name:  github.String(options.username),
+		Email: github.String(options.email),
+	}
+
+	var verification *github.SignatureVerification
+
+	if options.gpgPrivateKey != "" {
+		// the payload must be "an over the string commit as it would be written to the object database"
+		// we sign this data to verify the commit
+		payload := fmt.Sprintf(
+			`tree %s
+parent %s
+author %s <%s> %d +0000
+committer %s <%s> %d +0000
+
+%s`,
+			tree.GetSHA(),
+			parent.GetSHA(),
+			author.GetName(),
+			author.GetEmail(),
+			date.Unix(),
+			author.GetName(),
+			author.GetEmail(),
+			date.Unix(),
+			options.commitMessage,
+		)
+
+		// sign the payload data
+		signature, err := signData(payload, options.gpgPrivateKey, options.gpgPassphrase)
+		if err != nil {
+			return err
+		}
+
+		verification = &github.SignatureVerification{
+			Signature: signature,
+		}
+	}
+
+	commit := &github.Commit{
+		Author:       author,
+		Message:      &options.commitMessage,
+		Tree:         tree,
+		Parents:      []github.Commit{*parent.Commit},
+		Verification: verification,
+	}
+	newCommit, _, err := client.Git.CreateCommit(ctx, options.repoOwner, options.repoName, commit)
+	if err != nil {
+		return err
+	}
+
+	// Attach the commit to the selected branch
+	ref.Object.SHA = newCommit.SHA
+	_, _, err = client.Git.UpdateRef(ctx, options.repoOwner, options.repoName, ref, false)
+	return err
+}
+
+func signData(data string, privateKey string, passphrase string) (*string, error) {
+
+	entitylist, err := openpgp.ReadArmoredKeyRing(strings.NewReader(privateKey))
+	if err != nil {
+		return nil, err
+	}
+	pk := entitylist[0]
+
+	ppb := []byte(passphrase)
+
+	if pk.PrivateKey != nil && pk.PrivateKey.Encrypted {
+		err := pk.PrivateKey.Decrypt(ppb)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, subkey := range pk.Subkeys {
+		if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
+			err := subkey.PrivateKey.Decrypt(ppb)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	out := new(bytes.Buffer)
+	reader := strings.NewReader(data)
+	if err := openpgp.ArmoredDetachSign(out, pk, reader, nil); err != nil {
+		return nil, err
+	}
+	signature := string(out.Bytes())
+	return &signature, nil
 }

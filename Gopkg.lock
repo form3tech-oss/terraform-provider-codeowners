@@ -144,14 +144,6 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:579aa53434f76e463afd5ad6ea905d2f95222f1df8801b153df44e31b8272492"
-  name = "github.com/google/go-github"
-  packages = ["github"]
-  pruneopts = "UT"
-  revision = "2b50c3dee76ff3a14edb1cde53bf56e366ab0230"
-  version = "v23.0.0"
-
-[[projects]]
   digest = "1:a63cff6b5d8b95638bfe300385d93b2a6d9d687734b863da8e09dc834510a690"
   name = "github.com/google/go-querystring"
   packages = ["query"]
@@ -340,6 +332,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "c2b33e84"
+
+[[projects]]
+  digest = "1:ff98bd3732a981a61d88dce04d0ab8e05e5ad46fe67cbc2e107fcb8250ba68f1"
+  name = "github.com/liamg/go-github"
+  packages = ["github"]
+  pruneopts = "UT"
+  revision = "1c3f0aaee1ce742b655f1ba8f33740103e904c5c"
+  version = "v24.0.0"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -639,13 +639,14 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/google/go-github/github",
     "github.com/hashicorp/terraform/helper/resource",
     "github.com/hashicorp/terraform/helper/schema",
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
+    "github.com/liamg/go-github/github",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
+    "golang.org/x/crypto/openpgp",
     "golang.org/x/oauth2",
   ]
   solver-name = "gps-cdcl"

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-github/github"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/liamg/go-github/github"
 )
 
 func resourceFile() *schema.Resource {

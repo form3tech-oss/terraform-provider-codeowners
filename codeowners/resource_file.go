@@ -146,8 +146,8 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if err := createCommit(config.client, &commitOptions{
-		repoName:      file.RepositoryOwner,
-		repoOwner:     file.RepositoryName,
+		repoOwner:     file.RepositoryOwner,
+		repoName:      file.RepositoryName,
 		branch:        file.Branch,
 		commitMessage: "Updating CODEOWNERS file",
 		gpgPassphrase: config.gpgPassphrase,

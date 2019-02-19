@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Provider exposes the provider to terraform
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{

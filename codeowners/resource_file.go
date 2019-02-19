@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/liamg/go-github/github"
 )
+
+const codeownersPath = ".github/CODEOWNERS"
 
 func resourceFile() *schema.Resource {
 
@@ -110,7 +113,7 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 		},
 	}
 
-	if err := createCommit(config.client, &signedCommitOptions{
+	if err := createCommit(config.client, &commitOptions{
 		repoOwner:     file.RepositoryOwner,
 		repoName:      file.RepositoryName,
 		branch:        file.Branch,
@@ -142,7 +145,7 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 		},
 	}
 
-	if err := createCommit(config.client, &signedCommitOptions{
+	if err := createCommit(config.client, &commitOptions{
 		repoName:      file.RepositoryOwner,
 		repoOwner:     file.RepositoryName,
 		branch:        file.Branch,
@@ -211,6 +214,16 @@ func expandFile(d *schema.ResourceData) *File {
 	file := &File{}
 	file.RepositoryName = d.Get("repository_name").(string)
 	file.RepositoryOwner = d.Get("repository_owner").(string)
+
+	// support imports
+	if (file.RepositoryName == "" || file.RepositoryOwner == "") && d.Id() != "" {
+		parts := strings.Split(d.Id(), "/")
+		if len(parts) == 2 {
+			file.RepositoryOwner = parts[0]
+			file.RepositoryName = parts[1]
+		}
+	}
+
 	file.Branch = d.Get("branch").(string)
 	file.Ruleset = expandRuleset(d.Get("rules").(*schema.Set))
 	return file

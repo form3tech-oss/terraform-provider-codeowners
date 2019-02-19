@@ -95,7 +95,8 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	file.Ruleset = parseRulesFile(raw)
 
-	return flattenFile(file, d)
+	flattenFile(file, d)
+	return nil
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
@@ -126,6 +127,8 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	}); err != nil {
 		return err
 	}
+
+	flattenFile(file, d)
 
 	return resourceFileRead(d, m)
 }
@@ -190,13 +193,12 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	return err
 }
 
-func flattenFile(file *File, d *schema.ResourceData) error {
+func flattenFile(file *File, d *schema.ResourceData) {
 	d.SetId(fmt.Sprintf("%s/%s", file.RepositoryOwner, file.RepositoryName))
 	d.Set("repository_name", file.RepositoryName)
 	d.Set("repository_owner", file.RepositoryOwner)
 	d.Set("rules", flattenRuleset(file.Ruleset))
 	d.Set("branch", file.Branch)
-	return nil
 }
 
 func flattenRuleset(in Ruleset) []map[string]interface{} {

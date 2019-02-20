@@ -21,6 +21,8 @@ func testAccPreCheck(t *testing.T) {
 
 	required := []string{
 		"GITHUB_TOKEN",
+		"GITHUB_USERNAME",
+		"GITHUB_EMAIL",
 	}
 
 	for _, req := range required {

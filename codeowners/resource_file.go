@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
+	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/liamg/go-github/github"
 )
@@ -20,7 +22,7 @@ func resourceFile() *schema.Resource {
 		Read:   resourceFileRead,
 		Delete: resourceFileDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			State: resourceFileImport,
 		},
 		Schema: map[string]*schema.Schema{
 			"repository_owner": &schema.Schema{
@@ -40,6 +42,7 @@ func resourceFile() *schema.Resource {
 				Optional:    true,
 				Description: "The branch to control CODEOWNERS on - defaults to the default repo branch",
 				Default:     "",
+				ForceNew:    true,
 			},
 			"rules": &schema.Schema{
 				Type:        schema.TypeSet,
@@ -59,12 +62,29 @@ func resourceFile() *schema.Resource {
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
+							Set: schema.HashString,
 						},
 					},
 				},
+				Set: hashRule,
 			},
 		},
 	}
+}
+
+func hashRule(v interface{}) int {
+	m := v.(map[string]interface{})
+	usernames := []string{}
+	for _, u := range m["usernames"].(*schema.Set).List() {
+		usernames = append(usernames, u.(string))
+	}
+	sort.Strings(usernames)
+	return hashcode.String(m["pattern"].(string) + strings.Join(usernames, ","))
+}
+
+func resourceFileImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	err := resourceFileRead(d, m)
+	return []*schema.ResourceData{d}, err
 }
 
 func resourceFileRead(d *schema.ResourceData, m interface{}) error {
@@ -73,12 +93,12 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	file := expandFile(d)
 
-	getOptions := &github.RepositoryContentGetOptions{}
-	if d.Get("branch").(string) != "" {
-		getOptions.Ref = d.Get("branch").(string)
+	ctx := context.Background()
+
+	getOptions := &github.RepositoryContentGetOptions{
+		Ref: file.Branch,
 	}
 
-	ctx := context.Background()
 	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, getOptions)
 	if err != nil || rr.StatusCode >= 500 {
 		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
@@ -104,6 +124,14 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
+	if file.Branch == "" {
+		ctx := context.Background()
+		rep, _, err := config.client.Repositories.Get(ctx, file.RepositoryOwner, file.RepositoryName)
+		if err != nil {
+			return err
+		}
+		file.Branch = *rep.DefaultBranch
+	}
 
 	entries := []github.TreeEntry{
 		github.TreeEntry{
@@ -127,8 +155,6 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	}); err != nil {
 		return err
 	}
-
-	flattenFile(file, d)
 
 	return resourceFileRead(d, m)
 }
@@ -168,11 +194,11 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	config := m.(*providerConfiguration)
 
-	owner, name := d.Get("repository_owner").(string), d.Get("repository_name").(string)
+	file := expandFile(d)
 
 	ctx := context.Background()
 
-	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, owner, name, codeownersPath, &github.RepositoryContentGetOptions{})
+	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, &github.RepositoryContentGetOptions{Ref: file.Branch})
 	if err != nil {
 		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 	}
@@ -185,48 +211,64 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 		Message: github.String("Removing CODEOWNERS file"),
 		SHA:     codeOwnerContent.SHA,
 	}
-	if d.Get("branch").(string) != "" {
-		options.Branch = github.String(d.Get("branch").(string))
+	if file.Branch != "" {
+		options.Branch = &file.Branch
 	}
 
-	_, _, err = config.client.Repositories.DeleteFile(ctx, owner, name, codeownersPath, options)
+	_, _, err = config.client.Repositories.DeleteFile(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, options)
 	return err
 }
 
-func flattenFile(file *File, d *schema.ResourceData) {
-	d.SetId(fmt.Sprintf("%s/%s", file.RepositoryOwner, file.RepositoryName))
+func flattenFile(file *File, d *schema.ResourceData) error {
+	d.SetId(fmt.Sprintf("%s/%s:%s", file.RepositoryOwner, file.RepositoryName, file.Branch))
 	d.Set("repository_name", file.RepositoryName)
 	d.Set("repository_owner", file.RepositoryOwner)
-	d.Set("rules", flattenRuleset(file.Ruleset))
 	d.Set("branch", file.Branch)
+	return d.Set("rules", flattenRuleset(file.Ruleset))
 }
 
-func flattenRuleset(in Ruleset) []map[string]interface{} {
-	var out = make([]map[string]interface{}, len(in), len(in))
+func flattenRuleset(in Ruleset) []interface{} {
+	out := []interface{}{}
 	for _, rule := range in {
 		out = append(out, map[string]interface{}{
 			"pattern":   rule.Pattern,
-			"usernames": rule.Usernames,
+			"usernames": schema.NewSet(schema.HashString, flattenStringList(rule.Usernames)),
 		})
 	}
 	return out
 }
 
+func flattenStringList(list []string) []interface{} {
+	vs := make([]interface{}, 0, len(list))
+	sort.Strings(list)
+	for _, v := range list {
+		vs = append(vs, v)
+	}
+	return vs
+}
+
 func expandFile(d *schema.ResourceData) *File {
 	file := &File{}
+
 	file.RepositoryName = d.Get("repository_name").(string)
 	file.RepositoryOwner = d.Get("repository_owner").(string)
+	file.Branch = d.Get("branch").(string)
 
 	// support imports
-	if (file.RepositoryName == "" || file.RepositoryOwner == "") && d.Id() != "" {
-		parts := strings.Split(d.Id(), "/")
+	if d.Id() != "" {
+		parts := strings.SplitN(d.Id(), "/", 2)
 		if len(parts) == 2 {
 			file.RepositoryOwner = parts[0]
-			file.RepositoryName = parts[1]
+			subs := strings.SplitN(parts[1], ":", 2)
+			if len(subs) > 0 {
+				file.RepositoryName = subs[0]
+				if len(subs) > 1 {
+					file.Branch = subs[1]
+				}
+			}
 		}
 	}
 
-	file.Branch = d.Get("branch").(string)
 	file.Ruleset = expandRuleset(d.Get("rules").(*schema.Set))
 	return file
 }
@@ -239,6 +281,7 @@ func expandRuleset(in *schema.Set) Ruleset {
 		for _, username := range rule["usernames"].(*schema.Set).List() {
 			usernames = append(usernames, username.(string))
 		}
+		sort.Strings(usernames)
 		out = append(out, Rule{
 			Pattern:   rule["pattern"].(string),
 			Usernames: usernames,

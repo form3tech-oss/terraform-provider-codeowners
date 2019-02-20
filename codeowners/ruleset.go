@@ -19,24 +19,6 @@ type Rule struct {
 	Usernames []string
 }
 
-func (ruleset Ruleset) Equal(comparison Ruleset) bool {
-	if len(ruleset) != len(comparison) {
-		return false
-	}
-	for _, rule := range ruleset {
-		found := false
-		for _, comparisonRule := range comparison {
-			if comparisonRule.Pattern == rule.Pattern {
-				found = sameStringSlice(rule.Usernames, comparisonRule.Usernames)
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
-}
-
 func sameStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
 		return false

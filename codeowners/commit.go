@@ -21,6 +21,7 @@ type commitOptions struct {
 	branch        string
 	username      string
 	email         string
+	stopOnFailure bool
 }
 
 func createCommit(client *github.Client, options *commitOptions) error {
@@ -107,13 +108,18 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		return err
 	}
 
-	res, _, err := client.PullRequests.Merge(ctx, options.repoOwner, options.repoName, pr.GetNumber(), commit.GetMessage(), nil)
+	_, response, err := client.PullRequests.Merge(ctx, options.repoOwner, options.repoName, pr.GetNumber(), commit.GetMessage(), nil)
 	if err != nil {
-		return err
-	}
 
-	if !res.GetMerged() {
-		return fmt.Errorf("PR was not merged")
+		pr.State = github.String("closed")
+		_, _, _ = client.PullRequests.Edit(ctx, options.repoOwner, options.repoName, pr.GetNumber(), pr)
+
+		if response.StatusCode == 405 && !options.stopOnFailure { // base branch was likely modified, let's try again
+			options.stopOnFailure = true // don't retry again
+			return createCommit(client, options)
+		}
+
+		return err
 	}
 
 	return nil

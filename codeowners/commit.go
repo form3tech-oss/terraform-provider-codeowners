@@ -21,7 +21,7 @@ type commitOptions struct {
 	branch        string
 	username      string
 	email         string
-	stopOnFailure bool
+	retryCount    int
 }
 
 func createCommit(client *github.Client, options *commitOptions) error {
@@ -115,12 +115,12 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		_, _, _ = client.PullRequests.Edit(ctx, options.repoOwner, options.repoName, pr.GetNumber(), pr)
 
 		// base branch was likely modified, try again
-		if response.StatusCode == 405 && !options.stopOnFailure { 
-			options.stopOnFailure = true // don't retry again
+		if response.StatusCode == 405 && options.retryCount < 3 { 
+			options.retryCount++ // don't retry again
 			return createCommit(client, options)
 		}
 
-		return err
+		return fmt.Errorf("HTTP %d: %s", response.StatusCode, err)
 	}
 
 	return nil

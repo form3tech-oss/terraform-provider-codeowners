@@ -114,7 +114,8 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		pr.State = github.String("closed")
 		_, _, _ = client.PullRequests.Edit(ctx, options.repoOwner, options.repoName, pr.GetNumber(), pr)
 
-		if response.StatusCode == 405 && !options.stopOnFailure { // base branch was likely modified, let's try again
+		// base branch was likely modified, let's try again
+		if response.StatusCode == 405 && !options.stopOnFailure { 
 			options.stopOnFailure = true // don't retry again
 			return createCommit(client, options)
 		}

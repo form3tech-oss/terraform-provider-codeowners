@@ -216,7 +216,10 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	}
 
 	_, _, err = config.client.Repositories.DeleteFile(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, options)
-	return err
+	if err != nil && !strings.Contains(err.Error(), "archived") {
+		return err
+	}
+	return nil
 }
 
 func flattenFile(file *File, d *schema.ResourceData) error {

@@ -95,8 +95,6 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		return err
 	}
 
-	_ = prRef
-
 	pr, _, err := client.PullRequests.Create(ctx, options.repoOwner, options.repoName, &github.NewPullRequest{
 		Title:               github.String(options.commitMessage),
 		Head:                prBranch.Ref,
@@ -115,13 +113,16 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		_, _, _ = client.PullRequests.Edit(ctx, options.repoOwner, options.repoName, pr.GetNumber(), pr)
 
 		// base branch was likely modified, try again
-		if response.StatusCode == 405 && options.retryCount < 3 { 
+		if response.StatusCode == 405 && options.retryCount < 3 {
 			options.retryCount++ // don't retry again
 			return createCommit(client, options)
 		}
 
 		return fmt.Errorf("HTTP %d: %s", response.StatusCode, err)
 	}
+
+	// PR was merged, so we can attempt to remove our working branch (ignore failures, this isn't vital)
+	_, _ = client.Git.DeleteRef(ctx, options.repoOwner, options.repoName, prRef.GetRef())
 
 	return nil
 }

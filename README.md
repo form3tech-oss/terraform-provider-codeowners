@@ -42,6 +42,8 @@ export GITHUB_TOKEN="..."
 
 Provider block variables will override environment variables, where provided.
 
+Your token must have the full `repo` permission block set.
+
 ## Resources
 
 ### `codeowners_file`

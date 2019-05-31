@@ -12,35 +12,35 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"github_token": &schema.Schema{
+			"github_token": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "A github token with full repo/admin access permissions to the organisation being terraformed",
 				DefaultFunc: schema.EnvDefaultFunc("GITHUB_TOKEN", nil),
 				Sensitive:   true,
 			},
-			"gpg_passphrase": &schema.Schema{
+			"gpg_passphrase": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "The passphrase associated with your gpg_secret_key, if you have provided one",
 				DefaultFunc: schema.EnvDefaultFunc("GPG_PASSPHRASE", ""),
 				Sensitive:   true,
 			},
-			"gpg_secret_key": &schema.Schema{
+			"gpg_secret_key": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "GPG secret key to use to sign github commits",
 				DefaultFunc: schema.EnvDefaultFunc("GPG_SECRET_KEY", ""),
 				Sensitive:   true,
 			},
-			"email": &schema.Schema{
+			"email": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "Email to use for commit messages - if a GPG key is provided, this email must match that used in the key",
 				DefaultFunc: schema.EnvDefaultFunc("GITHUB_EMAIL", nil),
 				Sensitive:   true,
 			},
-			"username": &schema.Schema{
+			"username": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "Username to use for commit messages",

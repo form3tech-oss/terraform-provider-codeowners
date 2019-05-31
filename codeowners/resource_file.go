@@ -18,44 +18,44 @@ func resourceFile() *schema.Resource {
 
 	return &schema.Resource{
 		Create: resourceFileCreate,
-		Update: resourceFileUpdate,
 		Read:   resourceFileRead,
+		Update: resourceFileUpdate,
 		Delete: resourceFileDelete,
 		Importer: &schema.ResourceImporter{
 			State: resourceFileImport,
 		},
 		Schema: map[string]*schema.Schema{
-			"repository_owner": &schema.Schema{
+			"repository_owner": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The repository owner e.g. my-org if the repo is my-org/my-repo",
 				ForceNew:    true,
 			},
-			"repository_name": &schema.Schema{
+			"repository_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The repository name e.g. my-repo",
 				ForceNew:    true,
 			},
-			"branch": &schema.Schema{
+			"branch": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "The branch to control CODEOWNERS on - defaults to the default repo branch",
 				Default:     "",
 				ForceNew:    true,
 			},
-			"rules": &schema.Schema{
+			"rules": {
 				Type:        schema.TypeSet,
 				Optional:    true,
 				Description: "A list of rules that describe which reviewers should be assigned to which areas of the source code",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"pattern": &schema.Schema{
+						"pattern": {
 							Type:        schema.TypeString,
 							Required:    true,
 							Description: "A pattern which follows the same rules used in gitignore files",
 						},
-						"usernames": &schema.Schema{
+						"usernames": {
 							Type:        schema.TypeSet,
 							Required:    true,
 							Description: "A list of usernames or team names using the standard @username or @org/team-name format - using the @ prefix is entirely optional",
@@ -74,7 +74,7 @@ func resourceFile() *schema.Resource {
 
 func hashRule(v interface{}) int {
 	m := v.(map[string]interface{})
-	usernames := []string{}
+	var usernames []string
 	for _, u := range m["usernames"].(*schema.Set).List() {
 		usernames = append(usernames, u.(string))
 	}
@@ -115,7 +115,7 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	file.Ruleset = parseRulesFile(raw)
 
-	flattenFile(file, d)
+	_ = flattenFile(file, d)
 	return nil
 }
 
@@ -134,7 +134,7 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	entries := []github.TreeEntry{
-		github.TreeEntry{
+		{
 			Path:    github.String(codeownersPath),
 			Content: github.String(string(file.Ruleset.Compile())),
 			Type:    github.String("blob"),
@@ -166,7 +166,7 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 	file := expandFile(d)
 
 	entries := []github.TreeEntry{
-		github.TreeEntry{
+		{
 			Path:    github.String(codeownersPath),
 			Content: github.String(string(file.Ruleset.Compile())),
 			Type:    github.String("blob"),
@@ -221,14 +221,20 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 
 func flattenFile(file *File, d *schema.ResourceData) error {
 	d.SetId(fmt.Sprintf("%s/%s:%s", file.RepositoryOwner, file.RepositoryName, file.Branch))
-	d.Set("repository_name", file.RepositoryName)
-	d.Set("repository_owner", file.RepositoryOwner)
-	d.Set("branch", file.Branch)
+	if err := d.Set("repository_name", file.RepositoryName); err != nil {
+		return err
+	}
+	if err := d.Set("repository_owner", file.RepositoryOwner); err != nil {
+		return err
+	}
+	if err := d.Set("branch", file.Branch); err != nil {
+		return err
+	}
 	return d.Set("rules", flattenRuleset(file.Ruleset))
 }
 
 func flattenRuleset(in Ruleset) []interface{} {
-	out := []interface{}{}
+	var out []interface{}
 	for _, rule := range in {
 		out = append(out, map[string]interface{}{
 			"pattern":   rule.Pattern,
@@ -277,7 +283,7 @@ func expandRuleset(in *schema.Set) Ruleset {
 	out := Ruleset{}
 	for _, rule := range in.List() {
 		rule := rule.(map[string]interface{})
-		usernames := []string{}
+		var usernames []string
 		for _, username := range rule["usernames"].(*schema.Set).List() {
 			usernames = append(usernames, username.(string))
 		}

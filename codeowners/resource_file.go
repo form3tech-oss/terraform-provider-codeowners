@@ -18,8 +18,8 @@ func resourceFile() *schema.Resource {
 
 	return &schema.Resource{
 		Create: resourceFileCreate,
-		Update: resourceFileUpdate,
 		Read:   resourceFileRead,
+		Update: resourceFileUpdate,
 		Delete: resourceFileDelete,
 		Importer: &schema.ResourceImporter{
 			State: resourceFileImport,

@@ -11,22 +11,22 @@ import (
 
 func TestRulesetCompilation(t *testing.T) {
 	tests := []Ruleset{
-		Ruleset{
+		{
 			Rule{Pattern: "*", Usernames: []string{"jim"}},
 		},
-		Ruleset{
+		{
 			Rule{Pattern: "*", Usernames: []string{"jim"}},
 			Rule{Pattern: "*.go", Usernames: []string{"someone"}},
 		},
-		Ruleset{
+		{
 			Rule{Pattern: "*", Usernames: []string{"jim", "bob"}},
 			Rule{Pattern: "*.go", Usernames: []string{"someone"}},
 		},
-		Ruleset{
+		{
 			Rule{Pattern: "*", Usernames: []string{"jim", "bob"}},
 			Rule{Pattern: "*.go", Usernames: []string{"someone", "some-user", "somebody-else"}},
 		},
-		Ruleset{
+		{
 			Rule{Pattern: "*", Usernames: []string{"jim", "bob"}},
 			Rule{Pattern: "*.go", Usernames: []string{"someone", "some-user", "somebody-else"}},
 			Rule{Pattern: "*.java", Usernames: []string{"javaguy123", "javadev"}},

@@ -112,13 +112,17 @@ func createCommit(client *github.Client, options *commitOptions) error {
 		pr.State = github.String("closed")
 		_, _, _ = client.PullRequests.Edit(ctx, options.repoOwner, options.repoName, pr.GetNumber(), pr)
 
+		if response == nil {
+			return fmt.Errorf("failed to merge PR: %s", err)
+		}
+
 		// base branch was likely modified, try again
 		if response.StatusCode == 405 && options.retryCount < 3 {
 			options.retryCount++ // don't retry again
 			return createCommit(client, options)
 		}
 
-		return fmt.Errorf("HTTP %d: %s", response.StatusCode, err)
+		return fmt.Errorf("failed to merge PR: HTTP %d: %s", response.StatusCode, err)
 	}
 
 	// PR was merged, so we can attempt to remove our working branch (ignore failures, this isn't vital)
@@ -164,12 +168,12 @@ committer %s <%s> %d +0000
 
 func createSignature(data string, privateKey string, passphrase string) (*string, error) {
 
-	entitylist, err := openpgp.ReadArmoredKeyRing(strings.NewReader(privateKey))
+	entityList, err := openpgp.ReadArmoredKeyRing(strings.NewReader(privateKey))
 	if err != nil {
 		return nil, err
 	}
-	pk := entitylist[0]
 
+	pk := entityList[0]
 	ppb := []byte(passphrase)
 
 	if pk.PrivateKey != nil && pk.PrivateKey.Encrypted {
@@ -179,9 +183,9 @@ func createSignature(data string, privateKey string, passphrase string) (*string
 		}
 	}
 
-	for _, subkey := range pk.Subkeys {
-		if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
-			err := subkey.PrivateKey.Decrypt(ppb)
+	for _, subKey := range pk.Subkeys {
+		if subKey.PrivateKey != nil && subKey.PrivateKey.Encrypted {
+			err := subKey.PrivateKey.Decrypt(ppb)
 			if err != nil {
 				return nil, err
 			}
@@ -193,6 +197,7 @@ func createSignature(data string, privateKey string, passphrase string) (*string
 	if err := openpgp.ArmoredDetachSign(out, pk, reader, nil); err != nil {
 		return nil, err
 	}
+
 	signature := string(out.Bytes())
 	return &signature, nil
 }

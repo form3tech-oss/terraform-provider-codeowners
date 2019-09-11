@@ -1,6 +1,6 @@
 # CODEOWNERS Terraform Provider
 
-[![Build Status](https://travis-ci.org/form3tech-oss/terraform-provider-codeowners.svg?branch=master)](https://travis-ci.org/form3tech-oss/terraform-provider-codeowners)
+[![Build Status](https://travis-ci.com/form3tech-oss/terraform-provider-codeowners.svg?branch=master)](https://travis-ci.com/form3tech-oss/terraform-provider-codeowners)
 
 Terraform Provider for GitHub [CODEOWNERS](https://help.github.com/articles/about-code-owners/) files.
 

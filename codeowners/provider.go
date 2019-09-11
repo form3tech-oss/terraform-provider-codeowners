@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/liamg/go-github/github"
+	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 )
 

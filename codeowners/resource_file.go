@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/go-github/github"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/liamg/go-github/github"
 )
 
 const codeownersPath = ".github/CODEOWNERS"
@@ -46,6 +46,7 @@ func resourceFile() *schema.Resource {
 			},
 			"rules": {
 				Type:        schema.TypeSet,
+				ConfigMode:  schema.SchemaConfigModeAttr,
 				Optional:    true,
 				Description: "A list of rules that describe which reviewers should be assigned to which areas of the source code",
 				Elem: &schema.Resource{
@@ -57,6 +58,7 @@ func resourceFile() *schema.Resource {
 						},
 						"usernames": {
 							Type:        schema.TypeSet,
+							ConfigMode:  schema.SchemaConfigModeAttr,
 							Required:    true,
 							Description: "A list of usernames or team names using the standard @username or @org/team-name format - using the @ prefix is entirely optional",
 							Elem: &schema.Schema{

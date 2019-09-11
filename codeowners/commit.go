@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liamg/go-github/github"
+	"github.com/google/go-github/github"
 	"golang.org/x/crypto/openpgp"
 )
 

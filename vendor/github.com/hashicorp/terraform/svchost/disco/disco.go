@@ -48,7 +48,6 @@ type Disco struct {
 	credsSrc  auth.CredentialsSource
 
 	// Transport is a custom http.RoundTripper to use.
-	// A package default is used if this is nil.
 	Transport http.RoundTripper
 }
 
@@ -63,6 +62,7 @@ func NewWithCredentialsSource(credsSrc auth.CredentialsSource) *Disco {
 	return &Disco{
 		hostCache: make(map[svchost.Hostname]*Host),
 		credsSrc:  credsSrc,
+		Transport: httpTransport,
 	}
 }
 
@@ -73,6 +73,18 @@ func NewWithCredentialsSource(credsSrc auth.CredentialsSource) *Disco {
 // credentials.
 func (d *Disco) SetCredentialsSource(src auth.CredentialsSource) {
 	d.credsSrc = src
+}
+
+// CredentialsSource returns the credentials source associated with the receiver,
+// or an empty credentials source if none is associated.
+func (d *Disco) CredentialsSource() auth.CredentialsSource {
+	if d.credsSrc == nil {
+		// We'll return an empty one just to save the caller from having to
+		// protect against the nil case, since this interface already allows
+		// for the possibility of there being no credentials at all.
+		return auth.StaticCredentialsSource(nil)
+	}
+	return d.credsSrc
 }
 
 // CredentialsForHost returns a non-nil HostCredentials if the embedded source has
@@ -98,10 +110,7 @@ func (d *Disco) ForceHostServices(hostname svchost.Hostname, services map[string
 	if services == nil {
 		services = map[string]interface{}{}
 	}
-	transport := d.Transport
-	if transport == nil {
-		transport = httpTransport
-	}
+
 	d.hostCache[hostname] = &Host{
 		discoURL: &url.URL{
 			Scheme: "https",
@@ -110,7 +119,7 @@ func (d *Disco) ForceHostServices(hostname svchost.Hostname, services map[string
 		},
 		hostname:  hostname.ForDisplay(),
 		services:  services,
-		transport: transport,
+		transport: d.Transport,
 	}
 }
 
@@ -157,13 +166,8 @@ func (d *Disco) discover(hostname svchost.Hostname) (*Host, error) {
 		Path:   discoPath,
 	}
 
-	transport := d.Transport
-	if transport == nil {
-		transport = httpTransport
-	}
-
 	client := &http.Client{
-		Transport: transport,
+		Transport: d.Transport,
 		Timeout:   discoTimeout,
 
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -205,7 +209,7 @@ func (d *Disco) discover(hostname svchost.Hostname) (*Host, error) {
 		// case the client followed any redirects.
 		discoURL:  resp.Request.URL,
 		hostname:  hostname.ForDisplay(),
-		transport: transport,
+		transport: d.Transport,
 	}
 
 	// Return the host without any services.

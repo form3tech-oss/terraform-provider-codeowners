@@ -10,7 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"github.com/liamg/go-github/github"
+	"github.com/google/go-github/github"
 )
 
 const testAccFileConfig = `

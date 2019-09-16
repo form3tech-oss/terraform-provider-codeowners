@@ -148,7 +148,7 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 		repoOwner:     file.RepositoryOwner,
 		repoName:      file.RepositoryName,
 		branch:        file.Branch,
-		commitMessage: "Adding CODEOWNERS file",
+		commitMessage: formatCommitMessage(config.commitMessagePrefix, "Adding CODEOWNERS file"),
 		gpgPassphrase: config.gpgPassphrase,
 		gpgPrivateKey: config.gpgKey,
 		username:      config.ghUsername,
@@ -180,7 +180,7 @@ func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
 		repoOwner:     file.RepositoryOwner,
 		repoName:      file.RepositoryName,
 		branch:        file.Branch,
-		commitMessage: "Updating CODEOWNERS file",
+		commitMessage: formatCommitMessage(config.commitMessagePrefix, "Updating CODEOWNERS file"),
 		gpgPassphrase: config.gpgPassphrase,
 		gpgPrivateKey: config.gpgKey,
 		username:      config.ghUsername,
@@ -210,7 +210,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	}
 
 	options := &github.RepositoryContentFileOptions{
-		Message: github.String("Removing CODEOWNERS file"),
+		Message: github.String(formatCommitMessage(config.commitMessagePrefix, "Removing CODEOWNERS file")),
 		SHA:     codeOwnerContent.SHA,
 	}
 	if file.Branch != "" {
@@ -296,4 +296,11 @@ func expandRuleset(in *schema.Set) Ruleset {
 		})
 	}
 	return out
+}
+
+func formatCommitMessage(p, m string) string {
+	if p == "" {
+		return m
+	}
+	return strings.TrimSpace(p) + " " + m
 }

@@ -12,6 +12,12 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
+			"commit_message_prefix": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "An optional prefix to be added to all commits generated as a result of manipulating the 'CODEOWNERS' file.",
+				DefaultFunc: schema.EnvDefaultFunc("COMMIT_MESSAGE_PREFIX", nil),
+			},
 			"github_token": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -56,11 +62,12 @@ func Provider() *schema.Provider {
 }
 
 type providerConfiguration struct {
-	client        *github.Client
-	ghUsername    string
-	ghEmail       string
-	gpgKey        string
-	gpgPassphrase string
+	commitMessagePrefix string
+	client              *github.Client
+	ghUsername          string
+	ghEmail             string
+	gpgKey              string
+	gpgPassphrase       string
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
@@ -72,10 +79,11 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	tc := oauth2.NewClient(ctx, ts)
 
 	return &providerConfiguration{
-		client:        github.NewClient(tc),
-		ghEmail:       d.Get("email").(string),
-		ghUsername:    d.Get("username").(string),
-		gpgKey:        d.Get("gpg_secret_key").(string),
-		gpgPassphrase: d.Get("gpg_passphrase").(string),
+		commitMessagePrefix: d.Get("commit_message_prefix").(string),
+		client:              github.NewClient(tc),
+		ghEmail:             d.Get("email").(string),
+		ghUsername:          d.Get("username").(string),
+		gpgKey:              d.Get("gpg_secret_key").(string),
+		gpgPassphrase:       d.Get("gpg_passphrase").(string),
 	}, nil
 }

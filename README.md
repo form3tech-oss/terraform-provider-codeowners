@@ -16,6 +16,7 @@ Download the relevant binary from [releases](https://github.com/form3tech-oss/te
 
 The following provider block variables are available for configuration:
 
+- `commit_message_prefix` - An optional prefix to be added to all commits generated as a result of manipulating the `CODEOWNERS` file.
 - `github_token` GitHub auth token - see below section. (read from env var `$GITHUB_TOKEN`)
 - `username` Username to use in commits (read from env var `$GITHUB_USERNAME`)
 - `email` Email to use in commits - this must match the email in your GPG key if you are signing commits (read from env var `$GITHUB_EMAIL`)

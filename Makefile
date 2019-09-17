@@ -11,8 +11,3 @@ vet:
 .PHONY: test
 test:
 	go test -v ./...
-
-.PHONY: release
-release:
-	go get github.com/goreleaser/goreleaser;
-	goreleaser;

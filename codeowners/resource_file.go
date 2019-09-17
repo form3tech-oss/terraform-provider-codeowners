@@ -3,11 +3,15 @@ package codeowners
 import (
 	"context"
 	"fmt"
+	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/google/go-github/github"
+	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
+	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
+	"github.com/google/go-github/v28/github"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -122,6 +126,10 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
+	return resourceFileCreateOrUpdate("Adding CODEOWNERS file", d, m )
+}
+
+func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{}) error {
 
 	config := m.(*providerConfiguration)
 
@@ -144,16 +152,20 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 		},
 	}
 
-	if err := createCommit(config.client, &commitOptions{
-		repoOwner:     file.RepositoryOwner,
-		repoName:      file.RepositoryName,
-		branch:        file.Branch,
-		commitMessage: formatCommitMessage(config.commitMessagePrefix, "Adding CODEOWNERS file"),
-		gpgPassphrase: config.gpgPassphrase,
-		gpgPrivateKey: config.gpgKey,
-		username:      config.ghUsername,
-		email:         config.ghEmail,
-		changes:       entries,
+	if err := githubcommitutils.CreateCommit(context.Background(), config.client, &githubcommitutils.CommitOptions{
+		RepoOwner:                   file.RepositoryOwner,
+		RepoName:                    file.RepositoryName,
+		CommitMessage:               formatCommitMessage(config.commitMessagePrefix, s),
+		GpgPassphrase:               config.gpgPassphrase,
+		GpgPrivateKey:               config.gpgKey,
+		Changes:                     entries,
+		Branch:                      file.Branch,
+		Username:                    config.ghUsername,
+		Email:                       config.ghEmail,
+		MaxRetries:                  3,
+		RetryBackoff:                5 * time.Second,
+		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
+		PullRequestBody:             "",
 	}); err != nil {
 		return err
 	}
@@ -161,36 +173,9 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 	return resourceFileRead(d, m)
 }
 
+
 func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
-
-	config := m.(*providerConfiguration)
-
-	file := expandFile(d)
-
-	entries := []github.TreeEntry{
-		{
-			Path:    github.String(codeownersPath),
-			Content: github.String(string(file.Ruleset.Compile())),
-			Type:    github.String("blob"),
-			Mode:    github.String("100644"),
-		},
-	}
-
-	if err := createCommit(config.client, &commitOptions{
-		repoOwner:     file.RepositoryOwner,
-		repoName:      file.RepositoryName,
-		branch:        file.Branch,
-		commitMessage: formatCommitMessage(config.commitMessagePrefix, "Updating CODEOWNERS file"),
-		gpgPassphrase: config.gpgPassphrase,
-		gpgPrivateKey: config.gpgKey,
-		username:      config.ghUsername,
-		email:         config.ghEmail,
-		changes:       entries,
-	}); err != nil {
-		return err
-	}
-
-	return resourceFileRead(d, m)
+	return resourceFileCreateOrUpdate("Updating CODEOWNERS file", d, m )
 }
 
 func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
@@ -198,27 +183,54 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 
 	file := expandFile(d)
 
-	ctx := context.Background()
-
-	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, &github.RepositoryContentGetOptions{Ref: file.Branch})
+	// Check whether the file exists.
+	_, err := githubfileutils.GetFile(context.Background(), config.client, file.RepositoryOwner, file.RepositoryName, file.Branch, codeownersPath)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
+		if err == githubfileutils.ErrNotFound {
+			return nil
+		}
+		return err
 	}
 
-	if rr.StatusCode == http.StatusNotFound { // resource already removed
-		return nil
+	// Get the tree that corresponds to the target branch.
+	s, err := branch.GetSHAForBranch(context.Background(), config.client, file.RepositoryOwner, file.RepositoryName, file.Branch)
+	if err != nil {
+		return err
+	}
+	oldTree, _, err := config.client.Git.GetTree(context.Background(), file.RepositoryOwner, file.RepositoryName, s, true)
+	if err != nil {
+		return err
 	}
 
-	options := &github.RepositoryContentFileOptions{
-		Message: github.String(formatCommitMessage(config.commitMessagePrefix, "Removing CODEOWNERS file")),
-		SHA:     codeOwnerContent.SHA,
-	}
-	if file.Branch != "" {
-		options.Branch = &file.Branch
+	// Remove the target file from the list of entries for the new tree.
+	// NOTE: Entries of type "tree" must be removed as well, otherwise deletion won't take place.
+	newTree := make([]github.TreeEntry, 0, len(oldTree.Entries))
+	for _, entry := range oldTree.Entries {
+		if *entry.Type != "tree" && *entry.Path != codeownersPath {
+			newTree = append(newTree, entry)
+		}
 	}
 
-	_, _, err = config.client.Repositories.DeleteFile(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, options)
-	return err
+	// Create a commit based on the new tree.
+	if err := githubcommitutils.CreateCommit(context.Background(), config.client, &githubcommitutils.CommitOptions{
+		RepoOwner:                   file.RepositoryOwner,
+		RepoName:                    file.RepositoryName,
+		CommitMessage:               formatCommitMessage(config.commitMessagePrefix, "Deleting CODEOWNERS file"),
+		GpgPassphrase:               config.gpgPassphrase,
+		GpgPrivateKey:               config.gpgKey,
+		Changes:                     newTree,
+		BaseTreeOverride:            github.String(""),
+		Branch:                      file.Branch,
+		Username:                    config.ghUsername,
+		Email:                       config.ghEmail,
+		MaxRetries:                  3,
+		RetryBackoff:                5 * time.Second,
+		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
+		PullRequestBody:             "",
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func flattenFile(file *File, d *schema.ResourceData) error {

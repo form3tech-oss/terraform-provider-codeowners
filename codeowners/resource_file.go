@@ -12,7 +12,6 @@ import (
 	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
 	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 	"github.com/google/go-github/v28/github"
-	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -49,7 +48,7 @@ func resourceFile() *schema.Resource {
 				ForceNew:    true,
 			},
 			"rules": {
-				Type:        schema.TypeSet,
+				Type:        schema.TypeList,
 				ConfigMode:  schema.SchemaConfigModeAttr,
 				Optional:    true,
 				Description: "A list of rules that describe which reviewers should be assigned to which areas of the source code",
@@ -72,20 +71,9 @@ func resourceFile() *schema.Resource {
 						},
 					},
 				},
-				Set: hashRule,
 			},
 		},
 	}
-}
-
-func hashRule(v interface{}) int {
-	m := v.(map[string]interface{})
-	var usernames []string
-	for _, u := range m["usernames"].(*schema.Set).List() {
-		usernames = append(usernames, u.(string))
-	}
-	sort.Strings(usernames)
-	return hashcode.String(m["pattern"].(string) + strings.Join(usernames, ","))
 }
 
 func resourceFileImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
@@ -289,13 +277,13 @@ func expandFile(d *schema.ResourceData) *File {
 		}
 	}
 
-	file.Ruleset = expandRuleset(d.Get("rules").(*schema.Set))
+	file.Ruleset = expandRuleset(d.Get("rules").([]interface{}))
 	return file
 }
 
-func expandRuleset(in *schema.Set) Ruleset {
+func expandRuleset(in []interface{}) Ruleset {
 	out := Ruleset{}
-	for _, rule := range in.List() {
+	for _, rule := range in {
 		rule := rule.(map[string]interface{})
 		var usernames []string
 		for _, username := range rule["usernames"].(*schema.Set).List() {

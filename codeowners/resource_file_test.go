@@ -39,12 +39,12 @@ const testAccFileConfigUpdate = `
 				usernames = [ "expert" ]
 			},
 			{
-				pattern = "*.java"
-				usernames = [ "java-expert", "java-guru", "someone-else" ]
-			},
-			{
 				pattern = "*.go"
 				usernames = [ "go-expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "java-expert", "java-guru", "someone-else" ]
 			}
 		]
 	}`
@@ -65,13 +65,13 @@ func TestAccResourceFile_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckFileExists(resourceName, &before),
 					resource.TestCheckResourceAttr(resourceName, "rules.#", "2"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.pattern", "*"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.usernames.#", "1"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.usernames.1327207234", "expert"),
-					resource.TestCheckResourceAttr(resourceName, "rules.4238064801.pattern", "*.java"),
-					resource.TestCheckResourceAttr(resourceName, "rules.4238064801.usernames.#", "2"),
-					resource.TestCheckResourceAttr(resourceName, "rules.4238064801.usernames.2414450220", "java-guru"),
-					resource.TestCheckResourceAttr(resourceName, "rules.4238064801.usernames.680681689", "java-expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.pattern", "*"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.1327207234", "expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.pattern", "*.java"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.2414450220", "java-guru"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.680681689", "java-expert"),
 					resource.TestCheckResourceAttr(resourceName, "repository_name", "enforcement-test-repo"),
 					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech"),
 					resource.TestCheckResourceAttr(resourceName, "branch", ""),
@@ -87,17 +87,17 @@ func TestAccResourceFile_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckFileExists(resourceName, &after),
 					resource.TestCheckResourceAttr(resourceName, "rules.#", "3"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.pattern", "*"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.usernames.#", "1"),
-					resource.TestCheckResourceAttr(resourceName, "rules.142117709.usernames.1327207234", "expert"),
-					resource.TestCheckResourceAttr(resourceName, "rules.206572860.pattern", "*.java"),
-					resource.TestCheckResourceAttr(resourceName, "rules.206572860.usernames.#", "3"),
-					resource.TestCheckResourceAttr(resourceName, "rules.206572860.usernames.2414450220", "java-guru"),
-					resource.TestCheckResourceAttr(resourceName, "rules.206572860.usernames.680681689", "java-expert"),
-					resource.TestCheckResourceAttr(resourceName, "rules.206572860.usernames.504743642", "someone-else"),
-					resource.TestCheckResourceAttr(resourceName, "rules.1328319286.pattern", "*.go"),
-					resource.TestCheckResourceAttr(resourceName, "rules.1328319286.usernames.#", "1"),
-					resource.TestCheckResourceAttr(resourceName, "rules.1328319286.usernames.2272469097", "go-expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.pattern", "*"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.1327207234", "expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.pattern", "*.go"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.2272469097", "go-expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.2.pattern", "*.java"),
+					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.#", "3"),
+					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.2414450220", "java-guru"),
+					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.680681689", "java-expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.504743642", "someone-else"),
 					resource.TestCheckResourceAttr(resourceName, "repository_name", "enforcement-test-repo"),
 					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech"),
 					resource.TestCheckResourceAttr(resourceName, "branch", ""),

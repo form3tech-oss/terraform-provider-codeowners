@@ -32,6 +32,12 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
+func TestDefaultMergeMethod(t *testing.T) {
+	if mergeMethod("wat?") != "merge" {
+		t.Fatal("Unexpected default value for mergeMethod")
+	}
+}
+
 func init() {
 	testAccProvider = Provider()
 	testAccProviders = map[string]terraform.ResourceProvider{

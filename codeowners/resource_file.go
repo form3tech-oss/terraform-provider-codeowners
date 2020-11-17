@@ -3,12 +3,12 @@ package codeowners
 import (
 	"context"
 	"fmt"
-	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
 	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 	"github.com/google/go-github/v28/github"
@@ -114,7 +114,7 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
-	return resourceFileCreateOrUpdate("Adding CODEOWNERS file", d, m )
+	return resourceFileCreateOrUpdate("Adding CODEOWNERS file", d, m)
 }
 
 func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{}) error {
@@ -154,6 +154,7 @@ func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{})
 		RetryBackoff:                5 * time.Second,
 		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
 		PullRequestBody:             "",
+		MergeMethod:                 config.mergeMethod,
 	}); err != nil {
 		return err
 	}
@@ -161,9 +162,8 @@ func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{})
 	return resourceFileRead(d, m)
 }
 
-
 func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
-	return resourceFileCreateOrUpdate("Updating CODEOWNERS file", d, m )
+	return resourceFileCreateOrUpdate("Updating CODEOWNERS file", d, m)
 }
 
 func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
@@ -215,6 +215,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 		RetryBackoff:                5 * time.Second,
 		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
 		PullRequestBody:             "",
+		MergeMethod:                 config.mergeMethod,
 	}); err != nil {
 		return err
 	}

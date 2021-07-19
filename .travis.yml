@@ -5,8 +5,6 @@ env:
   global:
   - GO111MODULE=on
   - TF_ACC=1
-  - GITHUB_EMAIL = foo@form3.tech
-  - GITHUB_USERNAME = foo
 cache:
   directories:
   - $GOPATH/pkg/mod

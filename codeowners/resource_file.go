@@ -94,12 +94,14 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	codeOwnerContent, _, rr, err := config.client.Repositories.GetContents(ctx, file.RepositoryOwner, file.RepositoryName, codeownersPath, getOptions)
-	if err != nil || rr.StatusCode >= 500 {
-		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
+
+	if rr != nil && rr.StatusCode == http.StatusNotFound {
+		d.SetId("")
+		return nil
 	}
 
-	if rr.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("file %s does not exist", codeownersPath)
+	if err != nil || rr.StatusCode >= 500 {
+		return fmt.Errorf("failed to retrieve file %s: %v", codeownersPath, err)
 	}
 
 	raw, err := codeOwnerContent.GetContent()
@@ -114,7 +116,7 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
-	return resourceFileCreateOrUpdate("Adding CODEOWNERS file", d, m )
+	return resourceFileCreateOrUpdate("Adding CODEOWNERS file", d, m)
 }
 
 func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{}) error {
@@ -161,9 +163,8 @@ func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{})
 	return resourceFileRead(d, m)
 }
 
-
 func resourceFileUpdate(d *schema.ResourceData, m interface{}) error {
-	return resourceFileCreateOrUpdate("Updating CODEOWNERS file", d, m )
+	return resourceFileCreateOrUpdate("Updating CODEOWNERS file", d, m)
 }
 
 func resourceFileDelete(d *schema.ResourceData, m interface{}) error {

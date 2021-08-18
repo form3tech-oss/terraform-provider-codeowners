@@ -1,8 +1,6 @@
 module github.com/form3tech-oss/terraform-provider-codeowners
 
-go 1.12
-
-replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
+go 1.16
 
 require (
 	github.com/form3tech-oss/go-github-utils v0.0.0-20190905153528-7219c2e250b4

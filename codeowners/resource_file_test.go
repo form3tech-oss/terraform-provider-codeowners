@@ -16,7 +16,7 @@ import (
 const testAccFileConfig = `
 	resource "codeowners_file" "my-codeowners-file" {
 		repository_name  = "enforcement-test-repo"
-		repository_owner = "form3tech"
+		repository_owner = "form3tech-oss"
 		rules = [
 			{
 				pattern = "*"
@@ -32,7 +32,7 @@ const testAccFileConfig = `
 const testAccFileConfigUpdate = `
 	resource "codeowners_file" "my-codeowners-file" {
 		repository_name  = "enforcement-test-repo"
-		repository_owner = "form3tech"
+		repository_owner = "form3tech-oss"
 		rules = [
 			{
 				pattern = "*"
@@ -73,7 +73,7 @@ func TestAccResourceFile_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.2414450220", "java-guru"),
 					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.680681689", "java-expert"),
 					resource.TestCheckResourceAttr(resourceName, "repository_name", "enforcement-test-repo"),
-					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech"),
+					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech-oss"),
 					resource.TestCheckResourceAttr(resourceName, "branch", ""),
 				),
 			},
@@ -99,7 +99,7 @@ func TestAccResourceFile_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.680681689", "java-expert"),
 					resource.TestCheckResourceAttr(resourceName, "rules.2.usernames.504743642", "someone-else"),
 					resource.TestCheckResourceAttr(resourceName, "repository_name", "enforcement-test-repo"),
-					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech"),
+					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech-oss"),
 					resource.TestCheckResourceAttr(resourceName, "branch", ""),
 				),
 			},

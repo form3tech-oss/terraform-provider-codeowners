@@ -3,8 +3,8 @@ package codeowners
 import (
 	"context"
 
-	"github.com/google/go-github/v28/github"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/google/go-github/v42/github"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"golang.org/x/oauth2"
 )
 

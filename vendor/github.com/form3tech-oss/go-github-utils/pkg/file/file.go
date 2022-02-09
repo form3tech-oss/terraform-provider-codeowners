@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-github/v28/github"
+	"github.com/google/go-github/v42/github"
 )
 
 var (
@@ -16,7 +16,11 @@ var (
 
 // GetFile returns a handle to a file in a GitHub repository by branch and path.
 // If an empty value is provided as the name of the branch, the file is looked up in the default one.
-func GetFile(ctx context.Context, c *github.Client, repositoryOwner, repositoryName, branch, path string) (*github.RepositoryContent, error) {
+func GetFile(
+	ctx context.Context,
+	c *github.Client,
+	repositoryOwner, repositoryName, branch, path string,
+) (*github.RepositoryContent, error) {
 	var o *github.RepositoryContentGetOptions
 	if branch != "" {
 		o = &github.RepositoryContentGetOptions{

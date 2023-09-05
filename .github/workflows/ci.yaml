@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*.*.*
   pull_request:
 
 jobs:
@@ -30,3 +32,5 @@ jobs:
         uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
       - name: Goreleaser
         run: ./scripts/goreleaser.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

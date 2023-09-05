@@ -1,11 +1,11 @@
 package codeowners
 
 import (
-	"context"
+	"fmt"
 
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v54/github"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"golang.org/x/oauth2"
+	tpg "github.com/integrations/terraform-provider-github/v5/github"
 )
 
 // Provider exposes the provider to terraform
@@ -72,15 +72,19 @@ type providerConfiguration struct {
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: d.Get("github_token").(string)},
-	)
-	tc := oauth2.NewClient(ctx, ts)
+	c := tpg.Config{
+		Token:   d.Get("github_token").(string),
+		BaseURL: "https://api.github.com/",
+	}
+
+	gc, err := c.NewRESTClient(c.AuthenticatedHTTPClient())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub Client: %v", err)
+	}
 
 	return &providerConfiguration{
 		commitMessagePrefix: d.Get("commit_message_prefix").(string),
-		client:              github.NewClient(tc),
+		client:              gc,
 		ghEmail:             d.Get("email").(string),
 		ghUsername:          d.Get("username").(string),
 		gpgKey:              d.Get("gpg_secret_key").(string),

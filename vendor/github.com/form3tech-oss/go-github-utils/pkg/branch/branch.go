@@ -3,7 +3,7 @@ package branch
 import (
 	"context"
 
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v54/github"
 )
 
 // GetDefaultBranch returns the name of the default branch for the specified repository.

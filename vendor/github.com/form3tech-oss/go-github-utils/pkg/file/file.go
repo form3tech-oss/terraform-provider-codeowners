@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v54/github"
 )
 
 var (

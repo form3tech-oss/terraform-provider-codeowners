@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/form3tech-oss/go-github-utils/pkg/branch"
-	"github.com/google/go-github/v42/github"
-	"golang.org/x/crypto/openpgp"
+	"github.com/google/go-github/v54/github"
 )
 
 const (
@@ -76,7 +76,7 @@ func CreateCommit(ctx context.Context, client *github.Client, options *CommitOpt
 	// This is not always populated, but is needed.
 	parent.Commit.SHA = github.String(parent.GetSHA())
 
-	date := time.Now()
+	date := github.Timestamp{Time: time.Now()}
 	author := &github.CommitAuthor{
 		Date:  &date,
 		Name:  github.String(options.Username),

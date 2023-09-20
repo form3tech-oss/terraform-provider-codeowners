@@ -3,12 +3,12 @@ package codeowners
 import (
 	"context"
 	"fmt"
-	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
 	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 	"github.com/google/go-github/v54/github"
@@ -156,6 +156,7 @@ func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{})
 		RetryBackoff:                5 * time.Second,
 		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
 		PullRequestBody:             "",
+		MergeMethod:                 config.mergeMethod,
 	}); err != nil {
 		return err
 	}
@@ -216,6 +217,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 		RetryBackoff:                5 * time.Second,
 		PullRequestSourceBranchName: fmt.Sprintf("terraform-provider-codeowners-%d", time.Now().UnixNano()),
 		PullRequestBody:             "",
+		MergeMethod:                 config.mergeMethod,
 	}); err != nil {
 		return err
 	}

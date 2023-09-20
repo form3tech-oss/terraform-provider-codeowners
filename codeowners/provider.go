@@ -53,6 +53,13 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("GITHUB_USERNAME", nil),
 				Sensitive:   true,
 			},
+			"merge_method": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "PullRequest merge method. Default: merge, available: merge, squash, rebase",
+				DefaultFunc: schema.EnvDefaultFunc("GITHUB_MERGE_METHOD", nil),
+				Sensitive:   true,
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"codeowners_file": resourceFile(),
@@ -68,6 +75,19 @@ type providerConfiguration struct {
 	ghEmail             string
 	gpgKey              string
 	gpgPassphrase       string
+	mergeMethod         string
+}
+
+func mergeMethod(mm string) string {
+	mergeMethods := []string{"merge", "squash", "rebase"}
+
+	for _, v := range mergeMethods {
+		if mm == v {
+			return mm
+		}
+	}
+
+	return "merge"
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
@@ -89,5 +109,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		ghUsername:          d.Get("username").(string),
 		gpgKey:              d.Get("gpg_secret_key").(string),
 		gpgPassphrase:       d.Get("gpg_passphrase").(string),
+		mergeMethod:         mergeMethod(d.Get("merge_method").(string)),
 	}, nil
 }

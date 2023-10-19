@@ -53,6 +53,13 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("GITHUB_USERNAME", nil),
 				Sensitive:   true,
 			},
+			"base_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "GitHub base API endpoint",
+				DefaultFunc: schema.EnvDefaultFunc("GITHUB_BASE_URL", "https://api.github.com/"),
+				Sensitive:   true,
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"codeowners_file": resourceFile(),
@@ -74,7 +81,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	c := tpg.Config{
 		Token:   d.Get("github_token").(string),
-		BaseURL: "https://api.github.com/",
+		BaseURL: d.Get("base_url").(string),
 	}
 
 	gc, err := c.NewRESTClient(c.AuthenticatedHTTPClient())

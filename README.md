@@ -1,5 +1,7 @@
 # CODEOWNERS Terraform Provider
 
+Just testing token rotation.
+
 [![Build status](https://github.com/form3tech-oss/terraform-provider-codeowners/actions/workflows/ci.yaml/badge.svg)](https://github.com/form3tech-oss/terraform-provider-codeowners/actions)
 
 Terraform Provider for GitHub [CODEOWNERS](https://help.github.com/articles/about-code-owners/) files.

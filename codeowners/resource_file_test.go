@@ -107,6 +107,60 @@ func TestAccResourceFile_basic(t *testing.T) {
 	})
 }
 
+const testAccFileConfigLeadingAtSign = `
+	resource "codeowners_file" "my-codeowners-file" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "@expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "java-expert", "@java-guru" ]
+			}
+		]
+	}`
+
+func TestAccResourceFile_OptionalAtSign(t *testing.T) {
+	resourceName := "codeowners_file.my-codeowners-file"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:      func() { testAccPreCheck(t) },
+		IDRefreshName: resourceName,
+		Providers:     testAccProviders,
+		CheckDestroy:  testAccCheckFileDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccFileConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "rules.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.pattern", "*"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "rules.0.usernames.1327207234", "expert"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.pattern", "*.java"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.2414450220", "java-guru"),
+					resource.TestCheckResourceAttr(resourceName, "rules.1.usernames.680681689", "java-expert"),
+					resource.TestCheckResourceAttr(resourceName, "repository_name", "enforcement-test-repo"),
+					resource.TestCheckResourceAttr(resourceName, "repository_owner", "form3tech-oss"),
+					resource.TestCheckResourceAttr(resourceName, "branch", ""),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config:   testAccFileConfigLeadingAtSign,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 func testAccCheckFileDestroy(s *terraform.State) error {
 	config := testAccProvider.Meta().(*providerConfiguration)
 

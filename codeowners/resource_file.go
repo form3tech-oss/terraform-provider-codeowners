@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-github/v54/github"
@@ -67,13 +69,71 @@ func resourceFile() *schema.Resource {
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							Set: schema.HashString,
+							Set:              schema.HashString,
+							DiffSuppressFunc: usernamesDiffSupressFunc,
 						},
 					},
 				},
 			},
 		},
 	}
+}
+
+var diffResultCache = sync.Map{}
+
+// usernamesDiffSupressFunc ignores the "@" prefix when comparing usernames.
+// Since the DiffSuppressFunc is called for each element of a Set field we
+// cache the first result to avoid computing the same diff over and over again.
+func usernamesDiffSupressFunc(key, _, _ string, d *schema.ResourceData) bool {
+	// For a set, the key is path to the element, rather than the set
+	// e.g. "rules.0.usernames.0" so let's get the path to the set.
+	lastDotIndex := strings.LastIndex(key, ".")
+	if lastDotIndex != -1 {
+		key = string(key[:lastDotIndex])
+	}
+
+	cacheKey := fmt.Sprintf("%s.%s", d.Id(), key)
+	if cachedResult, ok := diffResultCache.Load(cacheKey); ok {
+		return cachedResult.(bool)
+	}
+
+	oldData, newData := d.GetChange(key)
+	if oldData == nil || newData == nil {
+		return false
+	}
+
+	oldSet, ok := oldData.(*schema.Set)
+	if !ok {
+		return false
+	}
+
+	newSet, ok := newData.(*schema.Set)
+	if !ok {
+		return false
+	}
+
+	oldArray := oldSet.List()
+	newArray := newSet.List()
+	if len(oldArray) != len(newArray) {
+		return false
+	}
+
+	oldItems := make([]string, len(oldArray))
+	for i, oldItem := range oldArray {
+		oldItems[i] = strings.TrimPrefix(fmt.Sprint(oldItem), "@")
+	}
+
+	newItems := make([]string, len(newArray))
+	for j, newItem := range newArray {
+		newItems[j] = strings.TrimPrefix(fmt.Sprint(newItem), "@")
+	}
+
+	sort.Strings(oldItems)
+	sort.Strings(newItems)
+
+	result := reflect.DeepEqual(oldItems, newItems)
+	diffResultCache.Store(cacheKey, result)
+	return result
 }
 
 func resourceFileImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {

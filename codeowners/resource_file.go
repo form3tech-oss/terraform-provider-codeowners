@@ -3,22 +3,22 @@ package codeowners
 import (
 	"context"
 	"fmt"
-	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
-	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
-	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 	"github.com/google/go-github/v54/github"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+
+	"github.com/form3tech-oss/go-github-utils/pkg/branch"
+	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
+	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 )
 
 const codeownersPath = ".github/CODEOWNERS"
 
 func resourceFile() *schema.Resource {
-
 	return &schema.Resource{
 		Create: resourceFileCreate,
 		Read:   resourceFileRead,
@@ -82,7 +82,6 @@ func resourceFileImport(d *schema.ResourceData, m interface{}) ([]*schema.Resour
 }
 
 func resourceFileRead(d *schema.ResourceData, m interface{}) error {
-
 	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
@@ -111,8 +110,7 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	file.Ruleset = parseRulesFile(raw)
 
-	_ = flattenFile(file, d)
-	return nil
+	return flattenFile(file, d)
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
@@ -120,7 +118,6 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{}) error {
-
 	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
@@ -288,7 +285,7 @@ func expandRuleset(in []interface{}) Ruleset {
 		rule := rule.(map[string]interface{})
 		var usernames []string
 		for _, username := range rule["usernames"].(*schema.Set).List() {
-			usernames = append(usernames, username.(string))
+			usernames = append(usernames, strings.TrimPrefix(username.(string), "@"))
 		}
 		sort.Strings(usernames)
 		out = append(out, Rule{

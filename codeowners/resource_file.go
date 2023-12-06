@@ -3,22 +3,24 @@ package codeowners
 import (
 	"context"
 	"fmt"
-	"github.com/form3tech-oss/go-github-utils/pkg/branch"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
-	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
-	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 	"github.com/google/go-github/v54/github"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+
+	"github.com/form3tech-oss/go-github-utils/pkg/branch"
+	githubcommitutils "github.com/form3tech-oss/go-github-utils/pkg/commit"
+	githubfileutils "github.com/form3tech-oss/go-github-utils/pkg/file"
 )
 
 const codeownersPath = ".github/CODEOWNERS"
 
 func resourceFile() *schema.Resource {
-
 	return &schema.Resource{
 		Create: resourceFileCreate,
 		Read:   resourceFileRead,
@@ -67,7 +69,8 @@ func resourceFile() *schema.Resource {
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							Set: schema.HashString,
+							Set:              schema.HashString,
+							DiffSuppressFunc: usernamesDiffSupressFunc,
 						},
 					},
 				},
@@ -76,13 +79,69 @@ func resourceFile() *schema.Resource {
 	}
 }
 
+var diffResultCache = sync.Map{}
+
+// usernamesDiffSupressFunc ignores the "@" prefix when comparing usernames.
+// Since the DiffSuppressFunc is called for each element of a Set field we
+// cache the first result to avoid computing the same diff over and over again.
+func usernamesDiffSupressFunc(key, _, _ string, d *schema.ResourceData) bool {
+	// For a set, the key is path to the element, rather than the set
+	// e.g. "rules.0.usernames.0" so let's get the path to the set.
+	lastDotIndex := strings.LastIndex(key, ".")
+	if lastDotIndex != -1 {
+		key = string(key[:lastDotIndex])
+	}
+
+	cacheKey := fmt.Sprintf("%s.%s", d.Id(), key)
+	if cachedResult, ok := diffResultCache.Load(cacheKey); ok {
+		return cachedResult.(bool)
+	}
+
+	oldData, newData := d.GetChange(key)
+	if oldData == nil || newData == nil {
+		return false
+	}
+
+	oldSet, ok := oldData.(*schema.Set)
+	if !ok {
+		return false
+	}
+
+	newSet, ok := newData.(*schema.Set)
+	if !ok {
+		return false
+	}
+
+	oldArray := oldSet.List()
+	newArray := newSet.List()
+	if len(oldArray) != len(newArray) {
+		return false
+	}
+
+	oldItems := make([]string, len(oldArray))
+	for i, oldItem := range oldArray {
+		oldItems[i] = strings.TrimPrefix(fmt.Sprint(oldItem), "@")
+	}
+
+	newItems := make([]string, len(newArray))
+	for j, newItem := range newArray {
+		newItems[j] = strings.TrimPrefix(fmt.Sprint(newItem), "@")
+	}
+
+	sort.Strings(oldItems)
+	sort.Strings(newItems)
+
+	result := reflect.DeepEqual(oldItems, newItems)
+	diffResultCache.Store(cacheKey, result)
+	return result
+}
+
 func resourceFileImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	err := resourceFileRead(d, m)
 	return []*schema.ResourceData{d}, err
 }
 
 func resourceFileRead(d *schema.ResourceData, m interface{}) error {
-
 	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
@@ -111,8 +170,7 @@ func resourceFileRead(d *schema.ResourceData, m interface{}) error {
 
 	file.Ruleset = parseRulesFile(raw)
 
-	_ = flattenFile(file, d)
-	return nil
+	return flattenFile(file, d)
 }
 
 func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
@@ -120,7 +178,6 @@ func resourceFileCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceFileCreateOrUpdate(s string, d *schema.ResourceData, m interface{}) error {
-
 	config := m.(*providerConfiguration)
 
 	file := expandFile(d)
@@ -288,7 +345,7 @@ func expandRuleset(in []interface{}) Ruleset {
 		rule := rule.(map[string]interface{})
 		var usernames []string
 		for _, username := range rule["usernames"].(*schema.Set).List() {
-			usernames = append(usernames, username.(string))
+			usernames = append(usernames, strings.TrimPrefix(username.(string), "@"))
 		}
 		sort.Strings(usernames)
 		out = append(out, Rule{

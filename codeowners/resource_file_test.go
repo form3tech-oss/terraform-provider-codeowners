@@ -49,6 +49,12 @@ const testAccFileConfigUpdate = `
 		]
 	}`
 
+type testCase struct {
+	ResourceName string
+	Old          string
+	New          string
+}
+
 func TestAccResourceFile_basic(t *testing.T) {
 	var before, after File
 
@@ -105,6 +111,151 @@ func TestAccResourceFile_basic(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestAccResourceFile_OptionalAtSign(t *testing.T) {
+	leadingAtSignTestCases := []testCase{
+		{
+			ResourceName: "codeowners_file.test-add-at-sign",
+			Old: `
+	resource "codeowners_file" "test-add-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "java-expert", "java-guru" ]
+			}
+		]
+	}
+`,
+			New: `
+	resource "codeowners_file" "test-add-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "@expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "@java-expert", "@java-guru" ]
+			}
+		]
+	}
+`,
+		},
+		{
+			ResourceName: "codeowners_file.test-remove-at-sign",
+			Old: `
+	resource "codeowners_file" "test-remove-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "@expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "@java-expert", "@java-guru" ]
+			}
+		]
+	}
+`,
+			New: `
+	resource "codeowners_file" "test-remove-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "java-expert", "java-guru" ]
+			}
+		]
+	}
+`,
+		},
+		{
+			ResourceName: "codeowners_file.test-toggle-at-sign",
+			Old: `
+	resource "codeowners_file" "test-toggle-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "java-expert", "@java-guru" ]
+			}
+		]
+	}
+`,
+			New: `
+	resource "codeowners_file" "test-toggle-at-sign" {
+		repository_name  = "enforcement-test-repo"
+		repository_owner = "form3tech-oss"
+		rules = [
+			{
+				pattern = "*"
+				usernames = [ "@expert" ]
+			},
+			{
+				pattern = "*.java"
+				usernames = [ "@java-expert", "java-guru" ]
+			}
+		]
+	}
+`,
+		},
+	}
+
+	for _, testCase := range leadingAtSignTestCases {
+		var resFile File
+		resource.Test(t, resource.TestCase{
+			PreCheck:      func() { testAccPreCheck(t) },
+			IDRefreshName: testCase.ResourceName,
+			Providers:     testAccProviders,
+			CheckDestroy:  testAccCheckFileDestroy,
+			Steps: []resource.TestStep{
+				{
+					Config: testCase.Old,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						testAccCheckFileExists(testCase.ResourceName, &resFile),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "rules.#", "2"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "rules.0.pattern", "*"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "rules.0.usernames.#", "1"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "rules.1.pattern", "*.java"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "rules.1.usernames.#", "2"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "repository_name", "enforcement-test-repo"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "repository_owner", "form3tech-oss"),
+						resource.TestCheckResourceAttr(testCase.ResourceName, "branch", ""),
+					),
+				},
+				{
+					ResourceName:      testCase.ResourceName,
+					ImportState:       true,
+					ImportStateVerify: true,
+				},
+				{
+					Config:   testCase.New,
+					PlanOnly: true,
+				},
+			},
+		})
+	}
 }
 
 func testAccCheckFileDestroy(s *terraform.State) error {

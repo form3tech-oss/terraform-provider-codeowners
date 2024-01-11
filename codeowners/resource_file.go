@@ -230,7 +230,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	file := expandFile(d)
 
 	// Check whether the file exists.
-	_, err := githubfileutils.GetFile(context.Background(), config.client, file.RepositoryOwner, file.RepositoryName, file.Branch, codeownersPath)
+	fileContent, err := githubfileutils.GetFile(context.Background(), config.client, file.RepositoryOwner, file.RepositoryName, file.Branch, codeownersPath)
 	if err != nil {
 		if err == githubfileutils.ErrNotFound {
 			return nil
@@ -243,19 +243,15 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
-	oldTree, _, err := config.client.Git.GetTree(context.Background(), file.RepositoryOwner, file.RepositoryName, s, true)
-	if err != nil {
-		return err
-	}
 
 	// Remove the target file from the list of entries for the new tree.
 	// NOTE: Entries of type "tree" must be removed as well, otherwise deletion won't take place.
-	newTree := make([]*github.TreeEntry, 0, len(oldTree.Entries))
-	for _, entry := range oldTree.Entries {
-		if *entry.Type != "tree" && *entry.Path != codeownersPath {
-			newTree = append(newTree, entry)
-		}
-	}
+	newTree := []*github.TreeEntry{{
+		SHA:  nil, // delete the file
+		Path: fileContent.Path,
+		Mode: github.String("100644"),
+		Type: github.String("blob"),
+	}}
 
 	// Create a commit based on the new tree.
 	if err := githubcommitutils.CreateCommit(context.Background(), config.client, &githubcommitutils.CommitOptions{
@@ -265,7 +261,7 @@ func resourceFileDelete(d *schema.ResourceData, m interface{}) error {
 		GpgPassphrase:               config.gpgPassphrase,
 		GpgPrivateKey:               config.gpgKey,
 		Changes:                     newTree,
-		BaseTreeOverride:            github.String(""),
+		BaseTreeOverride:            &s,
 		Branch:                      file.Branch,
 		Username:                    config.ghUsername,
 		Email:                       config.ghEmail,

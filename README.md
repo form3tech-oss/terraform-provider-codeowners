@@ -13,6 +13,7 @@ Do you use terraform to manage your GitHub organisation? Are you frustrated that
 Download the relevant binary from [releases](https://github.com/form3tech-oss/terraform-provider-codeowners/releases) and copy it to `$HOME/.terraform.d/plugins/`.
 
 ## Configuration
+Test
 
 The following provider block variables are available for configuration:
 
